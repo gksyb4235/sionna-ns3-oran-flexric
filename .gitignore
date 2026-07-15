@@ -1,0 +1,9 @@
+# External sibling install (see README) — not vendored, has its own remote
+/flexric/
+
+# Python venv for Sionna RT bridge — regenerate from requirements.txt
+/ns3-sionna/
+
+# Python bytecode
+__pycache__/
+*.pyc
