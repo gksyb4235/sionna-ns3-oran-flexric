@@ -28,11 +28,6 @@
 #include "ns3/random-variable-stream.h"
 #include <unordered_map>
 
-// Include NVIDIA Sionna
-#include "ns3/sionna-connection-handler.h"
-#include "ns3/sionna-helper.h"
-#include "ns3/node.h"
-
 namespace ns3
 {
 
@@ -118,8 +113,6 @@ class PropagationLossModel : public Object
      */
     int64_t AssignStreams(int64_t stream);
 
-    void SetSionnaUp() {m_sionna = true;};
-
   protected:
     /**
      * Assign a fixed random variable stream number to the random variables used by this model.
@@ -146,8 +139,6 @@ class PropagationLossModel : public Object
                                  Ptr<MobilityModel> b) const = 0;
 
     Ptr<PropagationLossModel> m_next; //!< Next propagation loss model in the list
-
-    bool m_sionna = false;
 };
 
 /**

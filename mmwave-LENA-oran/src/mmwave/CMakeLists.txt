@@ -159,5 +159,6 @@ build_lib(
     ${liblte}
     ${libpropagation}
     ${liboran-interface}
+    ${libsionna}
   TEST_SOURCES ${test_sources}
 )

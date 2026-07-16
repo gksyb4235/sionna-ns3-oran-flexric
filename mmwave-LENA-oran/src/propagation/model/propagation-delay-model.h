@@ -23,10 +23,6 @@
 #include "ns3/object.h"
 #include "ns3/ptr.h"
 #include "ns3/random-variable-stream.h"
-// Include NVIDIA Sionna
-#include "ns3/sionna-connection-handler.h"
-#include "ns3/sionna-helper.h"
-#include "ns3/node.h"
 
 namespace ns3
 {
@@ -133,12 +129,10 @@ class ConstantSpeedPropagationDelayModel : public PropagationDelayModel
      * \returns the current propagation speed (m/s).
      */
     double GetSpeed() const;
-    void SetSionnaUp() {m_sionna = true;};
 
   private:
     int64_t DoAssignStreams(int64_t stream) override;
     double m_speed; //!< speed
-    bool m_sionna = false;
 };
 
 } // namespace ns3

@@ -2,8 +2,14 @@
 /flexric/
 
 # Python venv for Sionna RT bridge — regenerate from requirements.txt
+/.venv/
 /ns3-sionna/
 
 # Python bytecode
 __pycache__/
 *.pyc
+.idea/
+
+# Polyscope/ImGui per-user window state generated in the current directory
+/.polyscope.ini
+/imgui.ini

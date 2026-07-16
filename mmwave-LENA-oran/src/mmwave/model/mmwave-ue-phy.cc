@@ -886,26 +886,6 @@ MmWaveUePhy::CreateDlCqiFeedbackMessage(const SpectrumValue& sinr)
 void
 MmWaveUePhy::GenerateDlCqiReport(const SpectrumValue& sinr)
 {
-        // 🔽🔽🔽 여기 추가 — SINR 인자 출력 🔽🔽🔽
-        NS_LOG_UNCOND("========== UE DL SINR REPORT ==========");
-        NS_LOG_UNCOND("Time=" << Simulator::Now().GetSeconds() 
-                       << " IMSI=" << m_imsi 
-                       << " RNTI=" << m_rnti 
-                       << " CellId=" << m_cellId);
-    
-        int rbIndex = 0;
-        for (auto it = sinr.ConstValuesBegin(); it != sinr.ConstValuesEnd(); ++it, ++rbIndex)
-        {
-            double sinrLin = *it;
-            double sinrDb = 10 * std::log10(std::max(sinrLin, 1e-20));
-            NS_LOG_UNCOND("[RB " << rbIndex
-                           << "] SINR_lin=" << sinrLin
-                           << " SINR_dB=" << sinrDb);
-        }
-        NS_LOG_UNCOND("========================================");
-        // 🔼🔼🔼 여기까지 추가 🔼🔼🔼
-
-
     if (m_ulConfigured && (m_rnti > 0) && m_receptionEnabled)
     {
         if (Simulator::Now() > m_wbCqiLast + m_wbCqiPeriod * m_phyMacConfig->GetSlotPeriod())

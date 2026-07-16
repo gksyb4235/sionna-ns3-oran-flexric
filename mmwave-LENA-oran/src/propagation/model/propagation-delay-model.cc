@@ -108,61 +108,13 @@ ConstantSpeedPropagationDelayModel::GetTypeId()
 
 ConstantSpeedPropagationDelayModel::ConstantSpeedPropagationDelayModel()
 {
-    SionnaHelper& sionnaHelper = SionnaHelper::GetInstance();
-    if (sionnaHelper.GetSionna())
-    {
-        SetSionnaUp();
-    }
 }
 
 Time
 ConstantSpeedPropagationDelayModel::GetDelay(Ptr<MobilityModel> a, Ptr<MobilityModel> b) const
 {
-    // 1 - Get xyz Coordinates, Velocities and Heading Angle for a and b
-    Vector a_position = a->GetPosition();
-    Vector b_position = b->GetPosition();
-    Vector a_velocity = a->GetVelocity();
-    Vector b_velocity = b->GetVelocity();
-
     double distance = a->GetDistanceFrom(b);
-
     double seconds = distance / m_speed;
-    double milliseconds = seconds * 1000;
-
-    double ns3_delay = seconds;
-    double ns3_delay_ms = milliseconds;
-    double sionna_delay, sionna_delay_ms;
-
-    if (m_sionna)
-    {
-        // 2 - Retreive the NodeID associated to the Ptr<MobilityModel>
-        Ptr<Node> nodeA = a->GetObject<Node>();
-        NS_ABORT_MSG_IF(!nodeA, "Error: Ptr<MobilityModel> a (usually TX) not linked to a Node. This is needed for Sionna to track the object location!");
-        std::string a_id = "obj" + std::to_string(nodeA->GetId() + 1);
-        Ptr<Node> nodeB = b->GetObject<Node>();
-        NS_ABORT_MSG_IF(!nodeB, "Error: Ptr<MobilityModel> b (usually RX) not linked to a Node. This is needed for Sionna to track the object location!");
-        std::string b_id = "obj" + std::to_string(nodeB->GetId() + 1);
-
-        // 3 - Location Update to Sionna
-        updateLocationInSionna(a_id, a_position, a_velocity);
-        updateLocationInSionna(b_id, b_position, b_velocity);
-
-        sionna_delay = getPropagationDelayFromSionna(a_position, b_position);
-        sionna_delay_ms = sionna_delay * 1000;
-
-        if (sionna_delay != 0)
-        {
-            if (sionna_verbose)
-            {
-                printf("ns3_ms: %f, sionna_ms: %f, ", ns3_delay_ms, sionna_delay_ms);
-            }
-
-            std::string log_delays = std::to_string(ns3_delay_ms) + "," + std::to_string(sionna_delay_ms);
-            logProgress(0, log_delays);
-        }
-    }
-
-    seconds = m_sionna ? sionna_delay : ns3_delay;
     return Seconds(seconds);
 }
 

@@ -1,0 +1,75 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+  -->
+<!-- Modified by Yannik Pilz: Changed materials and shapes -->
+<scene version="2.1.0">
+
+<!-- Defaults, these can be set via the command line: -Darg=value -->
+
+
+<!-- Camera and Rendering Parameters -->
+
+	<integrator type="path">
+		<integer name="max_depth" value="12"/>
+	</integrator>
+
+<!-- Materials -->
+
+	<bsdf type="twosided" id="mat-itu_brick">
+		<bsdf type="diffuse">
+			<rgb value="0.9 0.63 0.225" name="reflectance"/>
+		</bsdf>
+	</bsdf>
+
+<!-- Emitters -->
+
+	<emitter type="constant" id="World">
+		<rgb value="1.000000 1.000000 1.000000" name="radiance"/>
+	</emitter>
+
+<!-- Shapes -->
+
+	<shape type="obj" id="mesh-normal_wall">
+		<string name="filename" value="meshes/normal_wall.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+	<shape type="obj" id="mesh-slanted_wall_22,5">
+		<string name="filename" value="meshes/slanted_wall_22,5.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+	<shape type="obj" id="mesh-slanted_wall_45,0">
+		<string name="filename" value="meshes/slanted_wall_45,0.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+	<shape type="obj" id="mesh-slanted_wall_67,5">
+		<string name="filename" value="meshes/slanted_wall_67,5.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+	<shape type="obj" id="mesh-slanted_wall_112,5">
+		<string name="filename" value="meshes/slanted_wall_112,5.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+	<shape type="obj" id="mesh-slanted_wall_135,0">
+		<string name="filename" value="meshes/slanted_wall_135,0.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+	<shape type="obj" id="mesh-slanted_wall_157,5">
+		<string name="filename" value="meshes/slanted_wall_157,5.obj"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mat-itu_brick" name="bsdf"/>
+	</shape>
+
+</scene>

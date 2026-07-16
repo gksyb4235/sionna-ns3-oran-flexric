@@ -1,0 +1,8 @@
+# Minimal lifecycle example. UE person0 disappears at 0.30 s and returns at 0.50 s.
+time_s,ue_id,x,y,z,active
+0.00,person0,30.0,20.0,1.5,true
+0.10,person0,28.0,20.0,1.5,true
+0.20,person0,26.0,20.0,1.5,true
+0.30,person0,26.0,20.0,1.5,false
+0.50,person0,22.0,18.0,1.5,true
+0.60,person0,20.0,18.0,1.5,true

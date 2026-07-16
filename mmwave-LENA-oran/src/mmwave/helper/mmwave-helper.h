@@ -38,6 +38,11 @@
 #include "mmwave-mac-trace.h"
 #include "mmwave-phy-trace.h"
 
+#include <ns3/sionna-helper.h>
+#include <ns3/sionna-propagation-cache.h>
+
+#include <memory>
+
 #include <ns3/boolean.h>
 #include <ns3/config.h>
 #include <ns3/core-network-stats-calculator.h>
@@ -110,6 +115,27 @@ class MmWaveHelper : public Object
     NetDeviceContainer InstallLteEnbDevice(NodeContainer c);
     void SetChannelConditionModelType(std::string type);
     void SetPathlossModelType(std::string type);
+
+    /**
+     * Enable Sionna RT-based ray-traced propagation (path loss, fast fading/CFR, delay) on the
+     * mmWave and LTE channels created by this helper, replacing whatever
+     * SetPathlossModelType()/SetChannelModelType() would otherwise install. Must be called before
+     * the first InstallEnbDevice()/InstallUeDevice()/InstallLteEnbDevice() call, since channel
+     * construction happens lazily on first use.
+     * \param environment relative path (under the Sionna server's --model_folder) to the scene XML
+     * \param zmqUrl address of the Sionna server, e.g. "tcp://localhost:5555"
+     */
+    void EnableSionna(std::string environment, std::string zmqUrl);
+
+    /**
+     * \returns the SionnaHelper created by EnableSionna(), or nullptr if Sionna is not enabled.
+     * Call Configure()/Start() on it after all nodes/mobility models are installed, and
+     * Destroy() before Simulator::Destroy().
+     */
+    std::shared_ptr<SionnaHelper> GetSionnaHelper() const
+    {
+        return m_sionnaHelper;
+    }
     void SetChannelModelType(std::string type);
     void SetUePhasedArrayModelType(std::string type);
     void SetEnbPhasedArrayModelType(std::string type);
@@ -421,6 +447,14 @@ class MmWaveHelper : public Object
     std::string
         m_spectrumPropagationLossModelType; //!< the type of the SpectrumPropagationLossModel to use
                                             //!< (if needed)
+
+    bool m_sionnaEnable{false}; //!< if true, channels are wired to Sionna RT instead of
+                               //!< SetPathlossModelType()/SetChannelModelType()
+    std::string m_sionnaEnvironment; //!< scene XML path passed to SionnaHelper
+    std::string m_sionnaZmqUrl;      //!< Sionna server ZMQ address
+    std::shared_ptr<SionnaHelper> m_sionnaHelper; //!< owns the ZMQ connection to the Sionna server
+    Ptr<SionnaPropagationCache> m_sionnaPropagationCache; //!< shared cache used by all Sionna
+                                                          //!< channel models created below
 
     ObjectFactory m_enbNetDeviceFactory;
     ObjectFactory m_lteEnbNetDeviceFactory;

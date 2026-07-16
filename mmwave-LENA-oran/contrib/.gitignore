@@ -3,3 +3,14 @@
 
 # Include specific files that should be tracked by Git
 !.gitignore
+!sionna/
+!sionna/**
+
+# Generated locally by protobuf/Python; the build recreates these files.
+sionna/model/message.pb.cc
+sionna/model/message.pb.h
+sionna/model/ns3sionna/common/message_pb2.py
+sionna/**/.DS_Store
+sionna/**/__pycache__/
+sionna/**/*.pyc
+sionna/**/.idea/

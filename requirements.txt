@@ -1,22 +1,26 @@
 # ──────────────────────────────────────────────────────────────────
-# Python dependencies for the Sionna RT ↔ ns-3 bridge (ns3-sionna venv)
-# Install: python3.12 -m venv ns3-sionna && source ns3-sionna/bin/activate && pip install -r requirements.txt
+# Python dependencies for the Sionna RT ↔ ns-3 bridge (.venv)
+# Install: python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 #
 # Version-pinned to match sionna-oai-flexric-smo's verified environment
 # (Sionna RT 2.0.1), so scene/RSRP code ported from that project behaves
 # identically here.
 # ──────────────────────────────────────────────────────────────────
 
-# Sionna RT (ray tracing + channel simulation)
-# NVIDIA GPU + CUDA 12+ required
-sionna==2.0.1
+# Sionna RT standalone runtime. Full Sionna PHY/SYS is intentionally optional
+# (see requirements-sys.txt), so TensorFlow/h5py are not part of this server.
 sionna-rt==2.0.1
+mitsuba==3.8.0
+drjit==1.3.1
 
 # ZMQ (ns-3 pathloss bridge UDP companion, GUI position/KPI relay)
 pyzmq>=25.0
+protobuf>=3.21
+millify==0.1.1
 
 # Numerics
-numpy>=1.24
+numpy>=1.26
+scipy>=1.14.1
 
 # Jupyter notebook
 jupyter>=1.0
@@ -30,5 +34,4 @@ pandas>=2.0
 
 # GUI (Polyscope 3D visualization, reused from sionna-oai-flexric-smo/gui)
 polyscope>=2.6
-drjit>=1.3
-mitsuba>=3.8
+omegaconf>=2.3

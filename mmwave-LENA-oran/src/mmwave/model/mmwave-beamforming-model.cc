@@ -79,16 +79,6 @@ MmWaveBeamformingModel::MmWaveBeamformingModel()
 MmWaveBeamformingModel::~MmWaveBeamformingModel()
 {
 }
-// === add this helper function ===
-static double VectorNorm(const PhasedArrayModel::ComplexVector &v)
-{
-    double sum = 0.0;
-    for (uint32_t i = 0; i < v.GetSize(); i++)
-    {
-        sum += std::norm(v[i]);
-    }
-    return std::sqrt(sum);
-}
 
 void
 MmWaveBeamformingModel::DoDispose()
@@ -203,9 +193,6 @@ MmWaveDftBeamforming::SetBeamformingVectorForDevice(Ptr<NetDevice> otherDevice,
 
     NS_LOG_INFO("[DFT→RET-Steering] Applied TX/RX beamforming with RET="
                 << m_antenna->GetRetAngle() << " deg");
-
-    NS_LOG_UNCOND("[RET-BF] TX BF norm=" << VectorNorm(txBf));
-    NS_LOG_UNCOND("[RET-BF] RX BF norm=" << VectorNorm(rxBf));
 }
 
 

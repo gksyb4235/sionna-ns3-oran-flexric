@@ -56,6 +56,9 @@
 #include <ns3/multi-model-spectrum-channel.h>
 #include <ns3/object-map.h>
 #include <ns3/pointer.h>
+#include <ns3/sionna-propagation-delay-model.h>
+#include <ns3/sionna-propagation-loss-model.h>
+#include <ns3/sionna-spectrum-propagation-loss-model.h>
 #include <ns3/string.h>
 #include <ns3/three-gpp-propagation-loss-model.h>
 #include <sys/time.h>
@@ -395,6 +398,37 @@ MmWaveHelper::MmWaveChannelModelInitialization (void)
         ccm = m_channelConditionModelFactory.Create<ChannelConditionModel> ();
       }
 
+        if (m_sionnaEnable)
+        {
+            // Ray-traced path loss (wideband) + fast fading/CFR (per-subcarrier) + delay,
+            // all backed by one shared SionnaPropagationCache/ZMQ connection to the Sionna
+            // server. Replaces the ThreeGpp*/statistical models entirely for this channel.
+            Ptr<SionnaPropagationLossModel> sionnaPlm = CreateObject<SionnaPropagationLossModel>();
+            sionnaPlm->SetPropagationCache(m_sionnaPropagationCache);
+            channel->AddPropagationLossModel(sionnaPlm);
+            m_pathlossModel[it->first] = sionnaPlm;
+
+            Ptr<SionnaSpectrumPropagationLossModel> sionnaSplm =
+                CreateObject<SionnaSpectrumPropagationLossModel>();
+            sionnaSplm->SetPropagationCache(m_sionnaPropagationCache);
+            channel->AddSpectrumPropagationLossModel(sionnaSplm);
+
+            // Deliberately NOT calling channel->SetPropagationDelayModel() here.
+            // The default (non-Sionna) branch below never sets one either, so this
+            // channel's rigid TDD slot/symbol scheduling (MmWaveEnbPhy/MmWaveUePhy
+            // StartTti) is implicitly built assuming zero propagation delay: the last
+            // symbol of a slot (UL CTRL RX) is scheduled to end exactly at the next
+            // slot boundary. Any non-zero delay model pushes that EndRx event past the
+            // boundary and collides with the next slot's DL CTRL TX ("cannot TX while
+            // RX" abort in mmwave-spectrum-phy.cc), regardless of how small the delay
+            // is. Sionna's ray-traced delay is real physical path delay, but this
+            // module has no timing-advance compensation for it, so it must be left
+            // unset here to match the idealized-zero-delay assumption everywhere else
+            // in the TDD scheduler. Pathloss/CFR (which is what RSRP/SINR/handover
+            // actually depend on) is unaffected by this.
+        }
+        else
+        {
         // create the propagation loss model
         if (!m_pathlossModelType.empty())
         {
@@ -476,6 +510,7 @@ MmWaveHelper::MmWaveChannelModelInitialization (void)
         {
             NS_LOG_WARN(this << " No SpectrumPropagationLossModel!");
         }
+        } // end else (!m_sionnaEnable)
 
         m_channel[it->first] = channel;
     } // end for
@@ -488,6 +523,15 @@ MmWaveHelper::LteChannelModelInitialization(void)
     // setup of LTE channels & related
     m_downlinkChannel = m_lteChannelFactory.Create<SpectrumChannel>();
     m_uplinkChannel = m_lteChannelFactory.Create<SpectrumChannel>();
+
+    // Deliberately NOT wired to Sionna even when m_sionnaEnable is set: SionnaHelper::Configure()
+    // is one session-wide fft_size/subcarrier_spacing shared by every channel that uses it, but
+    // the LTE anchor and mmWave channels generally have different RB counts (different
+    // Bandwidth/numerology), and SionnaSpectrumPropagationLossModel hard-asserts the returned CFR
+    // length against each channel's own PSD size. Making both channels agree on one fft_size at
+    // once isn't possible without changing ns3sionna's protocol, so the LTE anchor keeps using
+    // its normal statistical model here; only the mmWave channel is ray-traced (see
+    // MmWaveChannelModelInitialization).
     m_downlinkPathlossModel = m_dlPathlossModelFactory.Create();
     Ptr<SpectrumPropagationLossModel> dlSplm =
         m_downlinkPathlossModel->GetObject<SpectrumPropagationLossModel>();
@@ -563,6 +607,18 @@ MmWaveHelper::SetBeamformingModelType(std::string type)
 {
     NS_LOG_FUNCTION(this << type);
     m_bfModelFactory = ObjectFactory(type);
+}
+
+void
+MmWaveHelper::EnableSionna(std::string environment, std::string zmqUrl)
+{
+    NS_LOG_FUNCTION(this << environment << zmqUrl);
+    m_sionnaEnable = true;
+    m_sionnaEnvironment = environment;
+    m_sionnaZmqUrl = zmqUrl;
+    m_sionnaHelper = std::make_shared<SionnaHelper>(environment, zmqUrl);
+    m_sionnaPropagationCache = CreateObject<SionnaPropagationCache>();
+    m_sionnaPropagationCache->SetSionnaHelper(*m_sionnaHelper);
 }
 
 void
@@ -992,7 +1048,15 @@ MmWaveHelper::InstallSingleMcUeDevice(Ptr<Node> n)
             threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel>(splm);
         }
 
-        auto channelModel = threeGppSplm->GetChannelModel();
+        // threeGppSplm is null when the channel isn't backed by ThreeGppSpectrumPropagationLossModel
+        // (e.g. SionnaSpectrumPropagationLossModel when EnableSionna() is used) -- beamforming
+        // models just don't get a ChannelModel reference in that case (SetAttributeFailSafe below
+        // tolerates the resulting null PointerValue).
+        Ptr<MatrixBasedChannelModel> channelModel;
+        if (threeGppSplm)
+        {
+            channelModel = threeGppSplm->GetChannelModel();
+        }
         Ptr<MmWaveBeamformingModel> bfModel = m_bfModelFactory.Create<MmWaveBeamformingModel>();
         bfModel->SetAttributeFailSafe("Device", PointerValue(device));
         bfModel->SetAttributeFailSafe("Antenna", PointerValue(antenna));
@@ -1649,7 +1713,15 @@ MmWaveHelper::InstallSingleUeDevice(Ptr<Node> n)
             threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel>(splm);
         }
 
-        auto channelModel = threeGppSplm->GetChannelModel();
+        // threeGppSplm is null when the channel isn't backed by ThreeGppSpectrumPropagationLossModel
+        // (e.g. SionnaSpectrumPropagationLossModel when EnableSionna() is used) -- beamforming
+        // models just don't get a ChannelModel reference in that case (SetAttributeFailSafe below
+        // tolerates the resulting null PointerValue).
+        Ptr<MatrixBasedChannelModel> channelModel;
+        if (threeGppSplm)
+        {
+            channelModel = threeGppSplm->GetChannelModel();
+        }
 
         Ptr<MmWaveBeamformingModel> bfModel = m_bfModelFactory.Create<MmWaveBeamformingModel>();
         bfModel->SetAttributeFailSafe("Device", PointerValue(device));
@@ -1830,10 +1902,8 @@ MmWaveHelper::InstallSingleEnbDevice(Ptr<Node> n)
     NS_ABORT_MSG_IF(m_useCa && ccMap.size() < 2,
                     "You have to either specify carriers or disable carrier aggregation");
     NS_ASSERT(ccMap.size() == m_noOfCcs);
-    printf("iam here ");
     for (auto it = ccMap.begin(); it != ccMap.end(); ++it)
-    {   
-        printf ("iam in for ");
+    {
         NS_LOG_DEBUG(this << "component carrier map size " << (uint16_t)ccMap.size());
         Ptr<MmWaveComponentCarrierEnb> ccEnb = DynamicCast<MmWaveComponentCarrierEnb>(it->second);
 
@@ -1923,7 +1993,15 @@ MmWaveHelper::InstallSingleEnbDevice(Ptr<Node> n)
             threeGppSplm = DynamicCast<ThreeGppSpectrumPropagationLossModel>(splm);
         }
 
-        auto channelModel = threeGppSplm->GetChannelModel();
+        // threeGppSplm is null when the channel isn't backed by ThreeGppSpectrumPropagationLossModel
+        // (e.g. SionnaSpectrumPropagationLossModel when EnableSionna() is used) -- beamforming
+        // models just don't get a ChannelModel reference in that case (SetAttributeFailSafe below
+        // tolerates the resulting null PointerValue).
+        Ptr<MatrixBasedChannelModel> channelModel;
+        if (threeGppSplm)
+        {
+            channelModel = threeGppSplm->GetChannelModel();
+        }
 
         Ptr<MmWaveBeamformingModel> bfModel = m_bfModelFactory.Create<MmWaveBeamformingModel>();
         bfModel->SetAttributeFailSafe("Device", PointerValue(device));

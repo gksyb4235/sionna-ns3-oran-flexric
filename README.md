@@ -7,7 +7,7 @@ Sionna RT(레이트레이싱) + ns-3(O-RAN, `mmwave`/EN-DC 모듈) + FlexRIC 기
 이 프로젝트는 [`sionna-oai-flexric-smo`](https://github.com/gksyb4235)에서 시작됐다. 그 프로젝트는 경희대 국제캠퍼스 실측 3D 씬(Sionna RT) + OAI 5G SA(rfsim) + FlexRIC으로 per-UE CIR 주입까지 구현했지만, **OAI-gNB를 CU/DU로 쪼개 멀티-gNB × 멀티-UE로 확장하는 것은 OAI rfsimulator 자체의 구조적 한계**(동시 2-cell 링크를 지원하는 rfsimulator 버전보다 이 프로젝트가 고정한 버전이 오래됨)로 막혔다. 이를 우회하기 위해 gNB/UE PHY 스택 전체를 [Orange-OpenSource/ns-O-RAN-flexric](https://github.com/Orange-OpenSource/ns-O-RAN-flexric)(ns-3 + e2sim + FlexRIC 기반 RIC-TaaP)로 대체한 것이 이 저장소다.
 
 - `mmwave-LENA-oran`의 레거시 `mmwave` 모듈은 Scenario Zero/Handover xApp/ES xApp 등 모든 기존 RIC-TaaP 데모가 E2/KPM/RC까지 이미 배선돼 있고, **`--N_MmWaveEnbNodes`/`--N_Ues`로 멀티-gNB × 멀티-UE가 이미 지원**된다 — OAI에서 막혔던 지점이 여기선 애초에 문제가 안 된다.
-- `mmwave-LENA-oran/src/sionna`에 [robpegurri/ns3-rt](https://github.com/robpegurri/ns3-rt) 기반 Sionna RT ↔ ns-3 브리지가 이미 vendored되어 있다 (UDP 8103, `PropagationLossModel::CalcRxPower()`를 투명하게 가로채는 방식).
+- `mmwave-LENA-oran/contrib/sionna`에 [tkn-tub/ns3sionna](https://github.com/tkn-tub/ns3sionna) 기반 Sionna RT ↔ ns-3 브리지를 vendoring했다. ZMQ/protobuf로 광대역 path loss와 RB별 normalized CFR을 받아 레거시 `mmwave` 채널에 명시적으로 설치한다.
 - 목표: 기존 `sionna-oai-flexric-smo`의 Polyscope GUI + Sionna RT 물리 RSRP 계산은 그대로 유지하면서, gNB/UE PHY와 CIR 주입 경로만 ns-3 + FlexRIC으로 교체한 종단간 파이프라인 구축.
 
 ## 구조
@@ -22,7 +22,7 @@ sionna-ns3-oran-flexric/
 
 **이 저장소에 포함되지 않은 것** (별도 설치 필요, `.gitignore` 참고):
 - `flexric/` — EURECOM FlexRIC. 자체 GitLab remote를 갖는 독립 프로젝트라 형제 디렉토리로 별도 clone.
-- `ns3-sionna/` — Sionna RT 브리지용 Python venv. `requirements.txt`로 재현.
+- `.venv/` — Sionna RT 브리지용 Python venv. `requirements.txt`로 재현.
 - `mmwave-LENA-oran/build/`, `cmake-cache/`, `e2sim-kpmv3/e2sim/build/` — 빌드 산출물 (수 GB, 매번 로컬에서 재빌드).
 
 ## 설치
@@ -33,6 +33,7 @@ sionna-ns3-oran-flexric/
 sudo apt-get update
 sudo apt-get install -y build-essential git cmake libsctp-dev autoconf automake libtool bison flex libboost-all-dev
 sudo apt-get install -y g++-13 python3.12 python3.12-venv libc6-dev
+sudo apt-get install -y pkg-config libzmq3-dev cppzmq-dev protobuf-compiler libprotobuf-dev
 ```
 
 ### 2. e2sim 빌드 + 시스템 설치
@@ -71,13 +72,60 @@ sudo make install
 ### 5. Python 환경 (Sionna RT 브리지)
 
 ```bash
-python3.12 -m venv ns3-sionna
-source ns3-sionna/bin/activate
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-`sionna-oai-flexric-smo`에서 이미 검증된 것과 동일한 버전 조합(Sionna RT 2.0.1)을 그대로 맞춘다.
+이 저장소에서 검증한 Sionna RT 2.0.1 버전 조합을 사용한다.
+
+### 6. Sionna RT + ns-3 실행
+
+경희대 scene은 `mmwave-LENA-oran/contrib/sionna/model/ns3sionna/models/kyunghee`
+아래에 XML과 PLY 실파일로 포함되어 있다. 외부 저장소나 심볼릭 링크는 필요 없다.
+Polyscope GUI도 `mmwave-LENA-oran/contrib/sionna/gui`에 포함되어 있다.
+GUI가 필요 없으면 `--gui-src`를 생략한다.
+
+터미널 1:
+
+```bash
+cd /home/user/ns-O-RAN-flexric
+source .venv/bin/activate
+python -u mmwave-LENA-oran/contrib/sionna/gui/scripts/run_kyunghee_demo.py
+```
+
+터미널 2:
+
+```bash
+cd /home/user/ns-O-RAN-flexric
+source .venv/bin/activate
+cd mmwave-LENA-oran/contrib/sionna/model/ns3sionna
+python -u kyunghee_server.py \
+  --port 5556 \
+  --gui-src /home/user/ns-O-RAN-flexric/mmwave-LENA-oran/contrib/sionna/gui/src \
+  --gui-max-gnbs 2 \
+  --single_run --rt_fast
+```
+
+GUI를 사용하지 않는 기본 실행은
+`python -u kyunghee_server.py --single_run --rt_fast`만으로 충분하다. 서버가
+저장소 내부 Kyunghee scene을 자동 선택한다.
+
+터미널 3:
+
+```bash
+cd /home/user/ns-O-RAN-flexric/mmwave-LENA-oran
+./ns3 run "scratch/scenario-zero-sionna-kyunghee.cc \
+  --sionnaServerIp=tcp://localhost:5556 \
+  --N_MmWaveEnbNodes=2 --N_Ues=3 \
+  --gnbPositions=contrib/sionna/examples/kyunghee-demo-gnbs.csv \
+  --sumoTrace=contrib/sionna/examples/kyunghee-demo-ues.csv \
+  --enableSionna=true --enableE2=false \
+  --simTime=0.11 --trafficStart=0.001 --requireTraffic=false"
+```
+
+현재 Sionna 경로는 1×1 SISO이며, 레거시 mmWave TDD의 timing-advance 부재 때문에 RT propagation delay는 PHY에 적용하지 않는다. 적용되는 값은 광대역 path loss와 RB별 CFR이다.
 
 ## 알려진 이슈 / 트러블슈팅
 

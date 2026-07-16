@@ -51,11 +51,6 @@ PropagationLossModel::GetTypeId()
 PropagationLossModel::PropagationLossModel()
     : m_next(nullptr)
 {
-    SionnaHelper& sionnaHelper = SionnaHelper::GetInstance();
-    if (sionnaHelper.GetSionna())
-    {
-      SetSionnaUp();
-    }
 }
 
 PropagationLossModel::~PropagationLossModel()
@@ -79,58 +74,7 @@ PropagationLossModel::CalcRxPower(double txPowerDbm,
                                   Ptr<MobilityModel> a,
                                   Ptr<MobilityModel> b) const
 {
-    // 1 - Get xyz Coordinates, Velocities and Heading Angle for a and b
-    Vector a_position = a->GetPosition();
-    Vector b_position = b->GetPosition();
-    Vector a_velocity = a->GetVelocity();
-    Vector b_velocity = b->GetVelocity();
-
-    double power_ns3 = 0;
-    double power_sionna = 0;
-
-    if (m_sionna)
-    {
-        // 2 - Retreive the NodeID associated to the Ptr<MobilityModel>
-        Ptr<Node> nodeA = a->GetObject<Node>();
-        NS_ABORT_MSG_IF(!nodeA, "Error: Ptr<MobilityModel> a (usually TX) not linked to a Node. This is needed for Sionna to track the object location!");
-        std::string a_id = "obj" + std::to_string(nodeA->GetId() + 1);
-        Ptr<Node> nodeB = b->GetObject<Node>();
-        NS_ABORT_MSG_IF(!nodeB, "Error: Ptr<MobilityModel> b (usually RX) not linked to a Node. This is needed for Sionna to track the object location!");
-        std::string b_id = "obj" + std::to_string(nodeB->GetId() + 1);
-
-        // 3 - Location Update to Sionna
-        updateLocationInSionna(a_id, a_position, a_velocity);
-        updateLocationInSionna(b_id, b_position, b_velocity);
-
-        // 4 - Get Path Gain from Sionna and calculate power
-        double path_gain = getPathGainFromSionna(a_position, b_position);
-        power_sionna = txPowerDbm - path_gain;
-    }
-
-    power_ns3 = DoCalcRxPower(txPowerDbm, a, b);
-
-    if (m_sionna)
-    {   
-        // 5 - Log Progress
-        if (power_sionna != 0)
-        {
-            std::string los = getLOSStatusFromSionna(a_position, b_position);
-
-            if (sionna_verbose)
-            {
-                std::cout << "rxPower_ns3_model: " << -(txPowerDbm - power_ns3)
-                          << ", rxPower_sionna: " << -(txPowerDbm - power_sionna)-30
-                          << ", LOS: " << los << std::endl;
-            }
-            std::string log_pl =
-                std::to_string(power_ns3) + "," + std::to_string(power_sionna) + "," + los;
-            logProgress(2, log_pl);
-        }
-    }
-
-    // 6 - Return value from Sionna instead of ns3 models (if necessary)
-    double self = m_sionna && power_sionna != txPowerDbm ? power_sionna : power_ns3;
-
+    double self = DoCalcRxPower(txPowerDbm, a, b);
     if (m_next)
     {
         self = m_next->CalcRxPower(self, a, b);
